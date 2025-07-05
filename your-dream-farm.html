@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Your Dream Farm</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #a7d89c;
+      overflow: hidden;
+    }
+    canvas {
+      display: block;
+      margin: auto;
+      background: #6db46d;
+      image-rendering: pixelated;
+      touch-action: none;
+    }
+    #controls {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 10px;
+      z-index: 10;
+    }
+    .btn {
+      width: 50px;
+      height: 50px;
+      font-size: 20px;
+      border-radius: 50%;
+      background: white;
+      border: 2px solid #333;
+    }
+  </style>
+</head>
+<body>
+<canvas id="game" width="512" height="512"></canvas>
+
+<!-- 📱 On-screen buttons -->
+<div id="controls">
+  <button class="btn" id="left">⬅️</button>
+  <button class="btn" id="up">⬆️</button>
+  <button class="btn" id="down">⬇️</button>
+  <button class="btn" id="right">➡️</button>
+  <button class="btn" id="plant">🌱</button>
+  <button class="btn" id="harvest">🥕</button>
+</div>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+const tileSize = 32;
+
+let cols = 16;
+let rows = 16;
+canvas.width = cols * tileSize;
+canvas.height = rows * tileSize;
+
+const player = { x: 2, y: 10, color: "pink" };
+const pet = { x: 1, y: 10, color: "orange" };
+const npc = { x: 5, y: 2, color: "purple", name: "Luna" };
+let farm = loadFarm() || Array(5).fill().map(() => Array(5).fill(0));
+let currentMap = "outside";
+
+// Time and weather
+let time = 6;
+let timeCounter = 0;
+let timeSpeed = 60;
+let day = 1;
+let season = "Spring";
+let isRaining = false;
+const seasons = ["Spring", "Summer", "Fall", "Winter"];
+
+// Inventory
+let inventory = loadInventory() || {
+  carrots: 0,
+  coins: 0
+};
+
+// Controls
+const keys = {};
+document.addEventListener("keydown", e => keys[e.key] = true);
+document.addEventListener("keyup", e => keys[e.key] = false);
+document.getElementById("up").onclick = () => move("up");
+document.getElementById("down").onclick = () => move("down");
+document.getElementById("left").onclick = () => move("left");
+document.getElementById("right").onclick = () => move("right");
+document.getElementById("plant").onclick = () => doAction("plant");
+document.getElementById("harvest").onclick = () => doAction("harvest");
+
+function saveFarm() {
+  localStorage.setItem("dreamFarm", JSON.stringify(farm));
+}
+function loadFarm() {
+  const data = localStorage.getItem("dreamFarm");
+  return data ? JSON.parse(data) : null;
+}
+function saveInventory() {
+  localStorage.setItem("dreamInventory", JSON.stringify(inventory));
+}
+function loadInventory() {
+  const data = localStorage.getItem("dreamInventory");
+  return data ? JSON.parse(data) : null;
+}
+
+function move(direction) {
+  if (direction === "up") player.y--;
+  if (direction === "down") player.y++;
+  if (direction === "left") player.x--;
+  if (direction === "right") player.x++;
+
+  if (pet.x < player.x) pet.x++;
+  if (pet.x > player.x) pet.x--;
+  if (pet.y < player.y) pet.y++;
+  if (pet.y > player.y) pet.y--;
+
+  if (currentMap === "outside" && player.x >= 1 && player.x <= 2 && player.y === 4) {
+    currentMap = "inside";
+    player.x = 2;
+    player.y = 4;
+    pet.x = 1;
+    pet.y = 4;
+  }
+
+  if (currentMap === "inside" && player.x === 2 && player.y === 0) {
+    currentMap = "outside";
+    player.x = 2;
+    player.y = 5;
+    pet.x = 1;
+    pet.y = 5;
+  }
+}
+
+function doAction(type) {
+  const fx = player.x - 11;
+  const fy = player.y - 10;
+  if (fx >= 0 && fx < 5 && fy >= 0 && fy < 5) {
+    if (type === "plant" && farm[fy][fx] === 0) {
+      farm[fy][fx] = 1;
+    }
+    if (type === "harvest" && farm[fy][fx] === 1) {
+      farm[fy][fx] = 0;
+      inventory.carrots++;
+      inventory.coins += 5;
+    }
+    saveFarm();
+    saveInventory();
+  }
+}
+
+function updateTime() {
+  timeCounter++;
+  if (timeCounter >= timeSpeed) {
+    timeCounter = 0;
+    time++;
+    if (time > 23) {
+      time = 0;
+      day++;
+      if (day % 7 === 1) {
+        let index = seasons.indexOf(season);
+        season = seasons[(index + 1) % seasons.length];
+      }
+      isRaining = Math.random() < 0.3;
+    }
+  }
+}
+
+function getTimeLabel(hour) {
+  if (hour < 12) return hour + " AM";
+  if (hour === 12) return "12 PM";
+  return (hour - 12) + " PM";
+}
+
+function getSkyColor() {
+  if (isRaining) return "#5a5a78";
+  if (season === "Spring") {
+    if (time < 9) return "#a7d89c";
+    if (time < 17) return "#87ceeb";
+    if (time < 19) return "#f4b183";
+    if (time < 22) return "#4b3869";
+    return "#1a1a40";
+  }
+  if (season === "Summer") {
+    if (time < 9) return "#e0f7fa";
+    if (time < 17) return "#29b6f6";
+    if (time < 19) return "#ffcc80";
+    if (time < 22) return "#5d4037";
+    return "#2c3e50";
+  }
+  if (season === "Fall") {
+    if (time < 9) return "#ffe0b2";
+    if (time < 17) return "#ffb74d";
+    if (time < 19) return "#ff8a65";
+    if (time < 22) return "#4e342e";
+    return "#263238";
+  }
+  if (season === "Winter") {
+    if (time < 9) return "#e0f2f1";
+    if (time < 17) return "#b2ebf2";
+    if (time < 19) return "#90a4ae";
+    if (time < 22) return "#455a64";
+    return "#263238";
+  }
+}
+
+function draw() {
+  ctx.fillStyle = getSkyColor();
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  if (currentMap === "outside") {
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x < cols; x++) {
+        ctx.fillStyle = "#7cc17d";
+        ctx.fillRect(x * tileSize, y * tileSize, tileSize, tileSize);
+      }
+    }
+
+    ctx.fillStyle = "#a9746e";
+    ctx.fillRect(0, 0, 4 * tileSize, 4 * tileSize);
+
+    for (let y = 0; y < 5; y++) {
+      for (let x = 0; x < 5; x++) {
+        const tile = farm[y][x];
+        const px = (x + 11) * tileSize;
+        const py = (y + 10) * tileSize;
+        ctx.fillStyle = "#8b5e3c";
+        ctx.fillRect(px, py, tileSize, tileSize);
+        if (tile === 1) {
+          ctx.fillStyle = "#f28c28";
+          ctx.beginPath();
+          ctx.arc(px + 16, py + 16, 8, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
+
+    ctx.fillStyle = npc.color;
+    ctx.fillRect(npc.x * tileSize, npc.y * tileSize, tileSize, tileSize);
+  }
+
+  if (currentMap === "inside") {
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x < cols; x++) {
+        ctx.fillStyle = "#f5e2c8";
+        ctx.fillRect(x * tileSize, y * tileSize, tileSize, tileSize);
+      }
+    }
+
+    ctx.fillStyle = "#333";
+    ctx.fillRect(2 * tileSize, 0, tileSize, tileSize);
+    ctx.fillStyle = "#ffb6b6";
+    ctx.fillRect(4 * tileSize, 3 * tileSize, tileSize * 2, tileSize);
+  }
+
+  ctx.fillStyle = pet.color;
+  ctx.fillRect(pet.x * tileSize, pet.y * tileSize, tileSize, tileSize);
+
+  ctx.fillStyle = player.color;
+  ctx.fillRect(player.x * tileSize, player.y * tileSize, tileSize, tileSize);
+
+  if (currentMap === "outside" && player.x === npc.x && player.y === npc.y - 1) {
+    ctx.fillStyle = "white";
+    ctx.fillRect(0, 450, canvas.width, 64);
+    ctx.fillStyle = "black";
+    ctx.font = "16px Arial";
+    ctx.fillText(npc.name + ": Press 🌱 to plant, 🥕 to harvest!", 10, 480);
+  }
+
+  if (isRaining) {
+    ctx.fillStyle = "rgba(150,150,200,0.2)";
+    for (let i = 0; i < 100; i++) {
+      const rx = Math.random() * canvas.width;
+      const ry = Math.random() * canvas.height;
+      ctx.fillRect(rx, ry, 2, 10);
+    }
+  }
+
+  ctx.fillStyle = "white";
+  ctx.font = "16px Arial";
+  ctx.fillText("Time: " + getTimeLabel(time), 10, 20);
+  ctx.fillText("Day " + day + " - " + season, 10, 40);
+  if (isRaining) ctx.fillText("Rainy ☔", 10, 60);
+
+  // Inventory
+  ctx.fillStyle = "white";
+  ctx.fillRect(canvas.width - 160, 0, 160, 64);
+  ctx.fillStyle = "black";
+  ctx.fillText("Carrots: " + inventory.carrots, canvas.width - 150, 20);
+  ctx.fillText("Coins: " + inventory.coins + "g", canvas.width - 150, 40);
+}
+
+function movePlayer() {
+  if (keys["ArrowUp"]) move("up");
+  if (keys["ArrowDown"]) move("down");
+  if (keys["ArrowLeft"]) move("left");
+  if (keys["ArrowRight"]) move("right");
+
+  if (keys[" "] || keys["Spacebar"]) {
+    doAction("plant");
+    keys[" "] = false;
+    keys["Spacebar"] = false;
+  }
+
+  if (keys["h"] || keys["H"]) {
+    doAction("harvest");
+    keys["h"] = false;
+    keys["H"] = false;
+  }
+}
+
+function loop() {
+  movePlayer();
+  updateTime();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+loop();
+</script>
+</body>
+</html>
