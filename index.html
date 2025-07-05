@@ -34,12 +34,55 @@
       background: white;
       border: 2px solid #333;
     }
+    #luna, #sparklePortal {
+      position: absolute;
+      width: 32px;
+      image-rendering: pixelated;
+    }
+    #luna {
+      left: 160px;
+      top: 64px;
+    }
+    #sparklePortal {
+      left: 0;
+      top: 0;
+      height: 32px;
+      background: pink;
+      border: 1px solid white;
+    }
+    #lunaSpeech, #sparkleMessage {
+      position: absolute;
+      background: #fff9;
+      border: 1px solid #888;
+      padding: 8px;
+      font-family: sans-serif;
+      font-size: 12px;
+      display: none;
+      z-index: 20;
+    }
+    #lunaSpeech {
+      top: 30px;
+      left: 140px;
+      width: 180px;
+    }
+    #sparkleMessage {
+      top: 50px;
+      left: 50px;
+      width: 180px;
+    }
   </style>
 </head>
 <body>
+
 <canvas id="game" width="512" height="512"></canvas>
 
-<!-- 📱 On-screen buttons -->
+<!-- NPC and sparkle elements -->
+<img id="luna" src="luna.png">
+<div id="sparklePortal"></div>
+<div id="lunaSpeech">Hi there! I'm Luna 💫<br>Welcome to our little town!<br>I'll help you get started 🌱</div>
+<div id="sparkleMessage">🌟 You found the Sparkle Room! 🌈<br>So magical... 💖</div>
+
+<!-- Mobile controls -->
 <div id="controls">
   <button class="btn" id="left">⬅️</button>
   <button class="btn" id="up">⬆️</button>
@@ -59,78 +102,45 @@ let rows = 16;
 canvas.width = cols * tileSize;
 canvas.height = rows * tileSize;
 
-const player = { x: 2, y: 10, color: "pink" };
+const player = { x: 2, y: 10, color: "brown" };
 const pet = { x: 1, y: 10, color: "orange" };
 const npc = { x: 5, y: 2, color: "purple", name: "Luna" };
-let farm = loadFarm() || Array(5).fill().map(() => Array(5).fill(0));
+let farm = JSON.parse(localStorage.getItem("dreamFarm")) || Array(5).fill().map(() => Array(5).fill(0));
+let inventory = JSON.parse(localStorage.getItem("dreamInventory")) || { carrots: 0, coins: 0 };
 let currentMap = "outside";
 
-// Time and weather
-let time = 6;
-let timeCounter = 0;
-let timeSpeed = 60;
-let day = 1;
-let season = "Spring";
-let isRaining = false;
+// Time system
+let time = 6, timeCounter = 0, timeSpeed = 60, day = 1, season = "Spring", isRaining = false;
 const seasons = ["Spring", "Summer", "Fall", "Winter"];
 
-// Inventory
-let inventory = loadInventory() || {
-  carrots: 0,
-  coins: 0
-};
-
-// Controls
 const keys = {};
 document.addEventListener("keydown", e => keys[e.key] = true);
 document.addEventListener("keyup", e => keys[e.key] = false);
-document.getElementById("up").onclick = () => move("up");
-document.getElementById("down").onclick = () => move("down");
-document.getElementById("left").onclick = () => move("left");
-document.getElementById("right").onclick = () => move("right");
-document.getElementById("plant").onclick = () => doAction("plant");
-document.getElementById("harvest").onclick = () => doAction("harvest");
+["up", "down", "left", "right", "plant", "harvest"].forEach(id => {
+  document.getElementById(id).onclick = () => {
+    if (id === "plant" || id === "harvest") doAction(id);
+    else move(id);
+  };
+});
 
-function saveFarm() {
-  localStorage.setItem("dreamFarm", JSON.stringify(farm));
-}
-function loadFarm() {
-  const data = localStorage.getItem("dreamFarm");
-  return data ? JSON.parse(data) : null;
-}
-function saveInventory() {
-  localStorage.setItem("dreamInventory", JSON.stringify(inventory));
-}
-function loadInventory() {
-  const data = localStorage.getItem("dreamInventory");
-  return data ? JSON.parse(data) : null;
-}
+function move(dir) {
+  if (dir === "up") player.y--;
+  if (dir === "down") player.y++;
+  if (dir === "left") player.x--;
+  if (dir === "right") player.x++;
 
-function move(direction) {
-  if (direction === "up") player.y--;
-  if (direction === "down") player.y++;
-  if (direction === "left") player.x--;
-  if (direction === "right") player.x++;
-
+  // Follow
   if (pet.x < player.x) pet.x++;
   if (pet.x > player.x) pet.x--;
   if (pet.y < player.y) pet.y++;
   if (pet.y > player.y) pet.y--;
 
+  // Map change
   if (currentMap === "outside" && player.x >= 1 && player.x <= 2 && player.y === 4) {
-    currentMap = "inside";
-    player.x = 2;
-    player.y = 4;
-    pet.x = 1;
-    pet.y = 4;
+    currentMap = "inside"; player.x = 2; player.y = 4; pet.x = 1; pet.y = 4;
   }
-
   if (currentMap === "inside" && player.x === 2 && player.y === 0) {
-    currentMap = "outside";
-    player.x = 2;
-    player.y = 5;
-    pet.x = 1;
-    pet.y = 5;
+    currentMap = "outside"; player.x = 2; player.y = 5; pet.x = 1; pet.y = 5;
   }
 }
 
@@ -138,16 +148,13 @@ function doAction(type) {
   const fx = player.x - 11;
   const fy = player.y - 10;
   if (fx >= 0 && fx < 5 && fy >= 0 && fy < 5) {
-    if (type === "plant" && farm[fy][fx] === 0) {
-      farm[fy][fx] = 1;
-    }
+    if (type === "plant" && farm[fy][fx] === 0) farm[fy][fx] = 1;
     if (type === "harvest" && farm[fy][fx] === 1) {
       farm[fy][fx] = 0;
-      inventory.carrots++;
-      inventory.coins += 5;
+      inventory.carrots++; inventory.coins += 5;
     }
-    saveFarm();
-    saveInventory();
+    localStorage.setItem("dreamFarm", JSON.stringify(farm));
+    localStorage.setItem("dreamInventory", JSON.stringify(inventory));
   }
 }
 
@@ -157,12 +164,8 @@ function updateTime() {
     timeCounter = 0;
     time++;
     if (time > 23) {
-      time = 0;
-      day++;
-      if (day % 7 === 1) {
-        let index = seasons.indexOf(season);
-        season = seasons[(index + 1) % seasons.length];
-      }
+      time = 0; day++;
+      if (day % 7 === 1) season = seasons[(seasons.indexOf(season)+1) % seasons.length];
       isRaining = Math.random() < 0.3;
     }
   }
@@ -176,34 +179,17 @@ function getTimeLabel(hour) {
 
 function getSkyColor() {
   if (isRaining) return "#5a5a78";
-  if (season === "Spring") {
-    if (time < 9) return "#a7d89c";
-    if (time < 17) return "#87ceeb";
-    if (time < 19) return "#f4b183";
-    if (time < 22) return "#4b3869";
-    return "#1a1a40";
-  }
-  if (season === "Summer") {
-    if (time < 9) return "#e0f7fa";
-    if (time < 17) return "#29b6f6";
-    if (time < 19) return "#ffcc80";
-    if (time < 22) return "#5d4037";
-    return "#2c3e50";
-  }
-  if (season === "Fall") {
-    if (time < 9) return "#ffe0b2";
-    if (time < 17) return "#ffb74d";
-    if (time < 19) return "#ff8a65";
-    if (time < 22) return "#4e342e";
-    return "#263238";
-  }
-  if (season === "Winter") {
-    if (time < 9) return "#e0f2f1";
-    if (time < 17) return "#b2ebf2";
-    if (time < 19) return "#90a4ae";
-    if (time < 22) return "#455a64";
-    return "#263238";
-  }
+  const sky = {
+    Spring: ["#a7d89c", "#87ceeb", "#f4b183", "#4b3869", "#1a1a40"],
+    Summer: ["#e0f7fa", "#29b6f6", "#ffcc80", "#5d4037", "#2c3e50"],
+    Fall:   ["#ffe0b2", "#ffb74d", "#ff8a65", "#4e342e", "#263238"],
+    Winter: ["#e0f2f1", "#b2ebf2", "#90a4ae", "#455a64", "#263238"]
+  }[season];
+  if (time < 9) return sky[0];
+  if (time < 17) return sky[1];
+  if (time < 19) return sky[2];
+  if (time < 22) return sky[3];
+  return sky[4];
 }
 
 function draw() {
@@ -211,17 +197,16 @@ function draw() {
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   if (currentMap === "outside") {
-    for (let y = 0; y < rows; y++) {
+    for (let y = 0; y < rows; y++)
       for (let x = 0; x < cols; x++) {
         ctx.fillStyle = "#7cc17d";
         ctx.fillRect(x * tileSize, y * tileSize, tileSize, tileSize);
       }
-    }
 
     ctx.fillStyle = "#a9746e";
     ctx.fillRect(0, 0, 4 * tileSize, 4 * tileSize);
 
-    for (let y = 0; y < 5; y++) {
+    for (let y = 0; y < 5; y++)
       for (let x = 0; x < 5; x++) {
         const tile = farm[y][x];
         const px = (x + 11) * tileSize;
@@ -235,20 +220,14 @@ function draw() {
           ctx.fill();
         }
       }
-    }
 
     ctx.fillStyle = npc.color;
     ctx.fillRect(npc.x * tileSize, npc.y * tileSize, tileSize, tileSize);
   }
 
   if (currentMap === "inside") {
-    for (let y = 0; y < rows; y++) {
-      for (let x = 0; x < cols; x++) {
-        ctx.fillStyle = "#f5e2c8";
-        ctx.fillRect(x * tileSize, y * tileSize, tileSize, tileSize);
-      }
-    }
-
+    ctx.fillStyle = "#f5e2c8";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = "#333";
     ctx.fillRect(2 * tileSize, 0, tileSize, tileSize);
     ctx.fillStyle = "#ffb6b6";
@@ -262,11 +241,9 @@ function draw() {
   ctx.fillRect(player.x * tileSize, player.y * tileSize, tileSize, tileSize);
 
   if (currentMap === "outside" && player.x === npc.x && player.y === npc.y - 1) {
-    ctx.fillStyle = "white";
-    ctx.fillRect(0, 450, canvas.width, 64);
-    ctx.fillStyle = "black";
-    ctx.font = "16px Arial";
-    ctx.fillText(npc.name + ": Press 🌱 to plant, 🥕 to harvest!", 10, 480);
+    document.getElementById("lunaSpeech").style.display = "block";
+  } else {
+    document.getElementById("lunaSpeech").style.display = "none";
   }
 
   if (isRaining) {
@@ -284,41 +261,42 @@ function draw() {
   ctx.fillText("Day " + day + " - " + season, 10, 40);
   if (isRaining) ctx.fillText("Rainy ☔", 10, 60);
 
-  // Inventory
-  ctx.fillStyle = "white";
   ctx.fillRect(canvas.width - 160, 0, 160, 64);
   ctx.fillStyle = "black";
   ctx.fillText("Carrots: " + inventory.carrots, canvas.width - 150, 20);
   ctx.fillText("Coins: " + inventory.coins + "g", canvas.width - 150, 40);
 }
 
-function movePlayer() {
-  if (keys["ArrowUp"]) move("up");
-  if (keys["ArrowDown"]) move("down");
-  if (keys["ArrowLeft"]) move("left");
-  if (keys["ArrowRight"]) move("right");
-
-  if (keys[" "] || keys["Spacebar"]) {
-    doAction("plant");
-    keys[" "] = false;
-    keys["Spacebar"] = false;
-  }
-
-  if (keys["h"] || keys["H"]) {
-    doAction("harvest");
-    keys["h"] = false;
-    keys["H"] = false;
+function checkSparklePortal() {
+  if (player.x === 0 && player.y === 0) {
+    player.x = 9;
+    player.y = 9;
+    document.getElementById("sparkleMessage").style.display = "block";
+    setTimeout(() => {
+      document.getElementById("sparkleMessage").style.display = "none";
+    }, 4000);
   }
 }
 
 function loop() {
-  movePlayer();
+  if (keys["ArrowUp"]) move("up");
+  if (keys["ArrowDown"]) move("down");
+  if (keys["ArrowLeft"]) move("left");
+  if (keys["ArrowRight"]) move("right");
+  if (keys[" "] || keys["Spacebar"]) {
+    doAction("plant"); keys[" "] = false; keys["Spacebar"] = false;
+  }
+  if (keys["h"] || keys["H"]) {
+    doAction("harvest"); keys["h"] = false; keys["H"] = false;
+  }
+
   updateTime();
   draw();
+  checkSparklePortal();
   requestAnimationFrame(loop);
 }
-
 loop();
 </script>
+
 </body>
 </html>
